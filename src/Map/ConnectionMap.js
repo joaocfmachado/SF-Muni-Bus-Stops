@@ -2,11 +2,11 @@ import React, { Component } from 'react';
 import * as d3 from 'd3';
 import './Map.css';
 import $ from 'jquery';
-import ConnectionMapActions from './Actions/ConnectionMapActions.js';
-import ConnectionMapStore from './Stores/ConnectionMapStore.js';
 
 const propTypes = {
 	mapId: React.PropTypes.string,
+	routeConfig: React.PropTypes.object,
+	vehicleLocations: React.PropTypes.object,
 };
 
 class ConnectionMap extends Component {
@@ -21,10 +21,12 @@ class ConnectionMap extends Component {
 		].forEach(fn => {this[fn] = this[fn].bind(this);});
 	}
 
-	componentDidMount() {
-		ConnectionMapActions.GetRouteList((routeList) => {
-			this._initMap(routeList);
-		});		
+	componentDidMount() {	
+		this._initMap();
+	}
+
+	componentDidUpdate() {		
+		// this._initMap();
 	}
 
 	_getMapConfigs() {
@@ -32,7 +34,7 @@ class ConnectionMap extends Component {
 		let mapProps = {};
 
 		const width = $(`#${mapId}`).width();
-		const height = window.innerHeight;
+		const height = window.innerHeight-window.innerHeight/6;
 
 		const mapDimensions = { width, height };
 
@@ -76,8 +78,9 @@ class ConnectionMap extends Component {
 		mapProps.projection.scale(scale).translate(translate);
 	}
 
-	_initMap(routeList) {
-		const that = this;
+	_initMap() {
+		const { routeConfig, vehicleLocations } = this.props;
+
 		const mapProps = this._getMapConfigs();
 
 		d3.json('/internal/GeoMap/neighborhoods.json', (err, data) => {
@@ -90,41 +93,40 @@ class ConnectionMap extends Component {
 				.attr('d', mapProps.geoPath)
 				.attr('fill', '#EDEDED')
 				.attr('stroke', '#555555')
+				.attr('stroke-width', 1);			
+		});
+
+		d3.json('/internal/GeoMap/arteries.json', (err, data) => {
+			mapProps.arteries.selectAll('path')
+				.data(data.features)
+				.enter()
+				.append('path')
+				.attr('d', mapProps.geoPath)
+				.attr('fill', 'green')
+				.attr('stroke', '#555555')
+				.attr('stroke-width', 2);				
+		});
+
+		d3.json('/internal/GeoMap/freeways.json', (err, data) => {
+			mapProps.freeways.selectAll('path')
+				.data(data.features)
+				.enter()
+				.append('path')
+				.attr('d', mapProps.geoPath)
+				.attr('fill', 'red')
+				.attr('stroke', '#555555')
+				.attr('stroke-width', 3);					
+		});
+
+		d3.json('/internal/GeoMap/streets.json', (err, data) => {
+			mapProps.streets.selectAll('path')
+				.data(data.features)
+				.enter()
+				.append('path')
+				.attr('d', mapProps.geoPath)
+				.attr('fill', 'light-gray')
+				.attr('stroke', '#555555')
 				.attr('stroke-width', 1);
-
-			d3.json('/internal/GeoMap/arteries.json', (err, data) => {
-				mapProps.arteries.selectAll('path')
-					.data(data.features)
-					.enter()
-					.append('path')
-					.attr('d', mapProps.geoPath)
-					.attr('fill', '#EDEDED')
-					.attr('fill-opacity', '0.5')
-					.attr('stroke', '#555555')
-					.attr('stroke-width', 2);
-				
-				d3.json('/internal/GeoMap/freeways.json', (err, data) => {
-					mapProps.freeways.selectAll('path')
-						.data(data.features)
-						.enter()
-						.append('path')
-						.attr('d', mapProps.geoPath)
-						.attr('fill', '#EDEDED')
-						.attr('stroke', '#555555')
-						.attr('stroke-width', 3);
-
-					d3.json('/internal/GeoMap/streets.json', (err, data) => {
-						mapProps.streets.selectAll('path')
-							.data(data.features)
-							.enter()
-							.append('path')
-							.attr('d', mapProps.geoPath)
-							.attr('fill', '#EDEDED')
-							.attr('stroke', '#555555')
-							.attr('stroke-width', 1);
-					});
-				});
-			});
 		});
 	}
 
