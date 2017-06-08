@@ -9,7 +9,8 @@
     "react": "15.3.2",
     "react-dom": "15.3.2",
     "react-tap-event-plugin": "^1.0.0",	  
-    "reflux": "^0.4.1"    
+    "reflux": "^0.4.1",
+    "underscore": "1.8.3"
   },
   "devDependencies": {
     "react-scripts": "1.0.7"

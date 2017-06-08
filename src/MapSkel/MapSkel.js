@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { SelectField, MenuItem } from 'material-ui';
-import injectTapEventPlugin from 'react-tap-event-plugin';
+import _ from 'underscore';
 
 import MapActions from './Actions/MapActions.js';
 import MapStore from './Stores/MapStore.js';
@@ -34,8 +34,7 @@ class MapSkel extends Component {
 		return { muiTheme: getTheme() };
 	}
 
-	componentWillMount() {
-		injectTapEventPlugin();
+	componentWillMount() {		
 		MapActions.GetRouteList();
 		MapActions.GetRouteConfig();
 	}
@@ -54,40 +53,48 @@ class MapSkel extends Component {
 
 	_editSelectedRoute(e, index, value) {
 		this.setState({ selectedRoute: value });
+		MapActions.GetVehicleLocations(value);
 	}
 
 	render() {
 		const { selectedRoute, routeList, routeConfig, vehicleLocations } = this.state;
 
 		const routeListRoute = !routeList.route ? [] : routeList.route;
-		const routeSelectedValue = !selectedRoute && routeListRoute.length > 0 ? routeListRoute[0].title : selectedRoute;		
+		const routeSelectedValue = !selectedRoute && routeListRoute.length > 0 ? routeListRoute[0].tag : selectedRoute;
+
+		let routeMapConfig = {};
+		if (routeSelectedValue) {
+			routeMapConfig = _.findWhere(routeConfig.route, { tag: routeSelectedValue });
+		}
 
 		return (
 			<div id="mainContent">				
 				<div className="mdl-grid">
-					<div className="mdl-cell mdl-cell-2-col">
+					<div className="mdl-cell mdl-cell-1-col">
 						<SelectField
 							type="text"
 							id="selectRoute"
 							floatingLabelText="Select Route"
 							value={routeSelectedValue}
 							onChange={(e, index, value) => this._editSelectedRoute(e, index, value)}
+							style={{ marginLeft: '20px' }}
 						>
 							{
 								routeListRoute.map((route, i) =>
-									<MenuItem key={i} value={route.title} primaryText={route.title} />
+									<MenuItem key={i} value={route.tag} primaryText={route.title} />
 								)
 							}
 						</SelectField>
 					</div>
-					<div className="mdl-cell mdl-cell-10-col">
-						<ConnectionMap 
-							mapId="connectionMap"
-							routeConfig={routeConfig}
-							vehicleLocations={vehicleLocations}
-							selectedRoute={selectedRoute}
-						/>
-					</div>
+					{ Object.keys(routeConfig).length > 0 && Object.keys(vehicleLocations).length > 0 && (
+						<div className="mdl-cell mdl-cell-11-col">
+							<ConnectionMap 
+								mapId="connectionMap"
+								routeConfig={routeMapConfig}
+								vehicleLocations={vehicleLocations}
+							/>
+						</div>
+					)}					
 				</div>
 			</div>
 		);

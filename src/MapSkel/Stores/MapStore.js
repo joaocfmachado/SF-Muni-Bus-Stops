@@ -26,7 +26,7 @@ export default Reflux.createStore({
 			success(response) {
 				if (response) {
 					this.store.routeList = response;
-					this.trigger(this.store);
+					this.GetVehicleLocations(response.route[0].tag);
 				}
 			},
 			error(xhr, status, errorThrown) {
@@ -55,4 +55,25 @@ export default Reflux.createStore({
 			},
 		});
 	},
+
+	GetVehicleLocations(routeTag) {
+		const dateMilliseconds = new Date().getTime();
+		$.ajax({
+			url: this.baseUrl,
+			type: 'GET',
+            data: { command: 'vehicleLocations', a: this.agencyTag, r: routeTag, t: dateMilliseconds },
+			dataType: 'json',
+            context: this,
+			success(response) {
+				if (response) {
+					this.store.vehicleLocations = response;
+					this.trigger(this.store);
+				}
+			},
+			error(xhr, status, errorThrown) {
+				/* const errorMessage = 'Sorry, there was a problem when trying to get datasource!';
+				sendNotifications(errorMessage, 'error', null); */				
+			},
+		});
+	}
 });
