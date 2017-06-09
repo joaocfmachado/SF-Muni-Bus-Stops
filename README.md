@@ -1,4 +1,4 @@
-# SF-Muni-Bus-Train-Stops
+# SF-Muni-Bus-Stops
 Thousand Eyes Coding Challenge
 
 Steps to run this app:
