@@ -11,27 +11,23 @@ const propTypes = {
 };
 
 class ConnectionMap extends Component {
-	constructor() {
-		super();
-		this.state = {
-			mapProps: {},
-		};
+	constructor(props) {
+		super(props);
+
+		this.state = {};
+
+		this.mapProps = {};
 
 		[
 			'_initMap',
 			'_getMapConfigs',
 			'_createBounds',
 			'_applyRouteConfig',
+			'_cleanMap',
+			'_createMapRoute',
+			'_createMapStops',
+			'_createTranslateRouteVehicles',
 		].forEach(fn => {this[fn] = this[fn].bind(this);});
-	}
-
-	shouldComponentUpdate(nextProps) {
-		const { routeConfig, vehicleLocations } = this.props;
-		if (!_.isEqual(routeConfig, nextProps.routeConfig) || !_.isEqual(vehicleLocations, nextProps.vehicleLocations)) {
-			return true;
-		}
-		
-		return false;
 	}
 
 	componentDidMount() {	
@@ -44,81 +40,143 @@ class ConnectionMap extends Component {
 		this._applyRouteConfig();
 	}
 
-	_applyRouteConfig() {
-		const that = this;
+	_cleanMap(mapPropsData) {
 		const { routeConfig } = this.props;
-		const { mapProps } = this.state;		
-
-		if (mapProps.currentRoutes) {
-			_.each(mapProps.currentRoutes, (currentRoute) => currentRoute.remove());
+		if (mapPropsData.currentRoutes) {
+			_.each(mapPropsData.currentRoutes, (currentRoute) => currentRoute.remove());
 		}
 
-		if (mapProps.currentStops) {
-			_.each(mapProps.currentStops, (currentStop) => currentStop.remove())
+		if (mapPropsData.currentStops) {
+			_.each(mapPropsData.currentStops, (currentStop) => currentStop.remove())
 		}		
+
+		if (mapPropsData.currentVehicles) {
+			const routeTags = _.pluck(routeConfig, 'tag');
+			const vehicleTags = _.pluck(mapPropsData.currentVehicles, 'routeTag');
+			
+			const diffTags = _.difference(vehicleTags, routeTags);
+
+			_.each(diffTags, (diffTag) => {
+				const routeVehicle = _.findWhere(mapPropsData.currentVehicles, { routeTag: diffTag });
+				if (routeVehicle) {
+					routeVehicle.currentRouteVehicles.remove();
+				}
+			});	
+		}
+	}
+
+	_createMapRoute(currentRoute, routePath, color, lineFn) {
+		currentRoute.selectAll('path')
+			.data(routePath)
+			.enter()
+			.append('path')
+			.attr('d', (pathData) => {
+				return lineFn(pathData.point);
+			})
+			.attr('stroke-width', 1.5)			
+			.attr('stroke', `#${color}`)
+			.attr('fill', `#${color}`)
+			.attr('fill-opacity', 0);
+	}
+
+	_createMapStops(currentRouteStops, stops, projection) {
+		currentRouteStops.selectAll('rect')
+			.data(stops)
+			.enter()
+			.append('rect')
+			.attr('fill', '#4040a1')
+			.attr('width', 5)
+			.attr('height', 5)
+			.attr('x', (stopData) => {
+				return projection([stopData.lon, stopData.lat])[0];
+			})
+			.attr('y', (stopData) => {
+				return projection([stopData.lon, stopData.lat])[1];
+			});
+	}
+
+	// Source: https://stackoverflow.com/questions/9518186/manipulate-elements-by-binding-new-data
+	// Need to repeat the various steps so d3 can manipulate the data correctly
+	_createTranslateRouteVehicles(currentRouteVehicles, routeTagVehicles, projection) {		
+		// Source: https://stackoverflow.com/questions/15015752/make-sure-d3-data-element-matches-id
+		const routeVehicles = currentRouteVehicles.selectAll('image')			
+			.data(routeTagVehicles, (vehicle) => {
+				return vehicle.id;
+			});
+		
+		routeVehicles.enter()
+			.append('image')
+			.attr('xlink:href', '/images/BusTrain.png')
+			.attr('width', 20)
+			.attr('height', 20)
+			.attr('x', (vehiclePoint) => {
+				return projection([vehiclePoint.lon, vehiclePoint.lat])[0];
+			})
+			.attr('y', (vehiclePoint) => {
+				return projection([vehiclePoint.lon, vehiclePoint.lat])[1];
+			});
+
+		routeVehicles.transition()
+			.duration(5000)
+			.attr('x', (vehiclePoint) => {
+				return projection([vehiclePoint.lon, vehiclePoint.lat])[0];
+			})
+			.attr('y', (vehiclePoint) => {
+				return projection([vehiclePoint.lon, vehiclePoint.lat])[1];
+			});
+	}
+
+	_applyRouteConfig() {
+		const { routeConfig, vehicleLocations } = this.props;		
+		const mapPropsData = this.mapProps;
+
+		this._cleanMap(mapPropsData);		
 
 		const currentRoutes = [];
 		const currentStops = [];
+		const currentVehicles = [];
 
 		const lineFn = d3.line()
 					.x((point) => {
-						return mapProps.projection([point.lon, point.lat])[0];
+						return mapPropsData.projection([point.lon, point.lat])[0];
 					})
 					.y((point) => {
-						return mapProps.projection([point.lon, point.lat])[1];
+						return mapPropsData.projection([point.lon, point.lat])[1];
 					});
 		
 		
 		_.each(routeConfig, (routeConf, i) => {
-			const currentRoute = mapProps.svg.append('g').attr('id', `currentRoute${i}`);
-			const currentRouteStops = mapProps.svg.append('g').attr('id', `currentRouteStops${i}`);
+			const currentRoute = mapPropsData.svg.append('g').attr('id', `currentRoute${routeConf.tag}`);
+			const currentRouteStops = mapPropsData.svg.append('g').attr('id', `currentRouteStops${routeConf.tag}`);
+			let currentRouteVehicles;
+						
+			const getCurrentVehicleRoute = _.findWhere(mapPropsData.currentVehicles, { routeTag: routeConf.tag });
+			if (getCurrentVehicleRoute) {
+				currentRouteVehicles = getCurrentVehicleRoute.currentRouteVehicles;
+			} else {
+				currentRouteVehicles = mapPropsData.svg.append('g').attr('id', `currentRouteVehicles${routeConf.tag}`);	
+			}
 
-			currentRoute.selectAll('path')
-				.data(routeConf.path)
-				.enter()
-				.append('path')
-				.attr('d', (pathData) => {
-					return lineFn(pathData.point);
-				})
-				.attr('stroke-width', 1.5)			
-				.attr('stroke', `#${routeConf.color}`)
-				.attr('fill', `#${routeConf.color}`)
-				.attr('fill-opacity', 0);
+			const routeTagVehicles = !vehicleLocations[routeConf.tag] ? null: vehicleLocations[routeConf.tag].vehicle;
 
-			currentRouteStops.selectAll('rect')
-				.data(routeConf.stop)
-				.enter()
-				.append('rect')
-				.attr('fill', '#4040a1')
-				.attr('width', 5)
-				.attr('height', 5)
-				.attr('x', (stopData) => {
-					return mapProps.projection([stopData.lon, stopData.lat])[0];
-				})
-				.attr('y', (stopData) => {
-					return mapProps.projection([stopData.lon, stopData.lat])[1];
-				});
+			this._createMapRoute(currentRoute, routeConf.path, routeConf.color, lineFn);			
 
-				currentRoutes.push(currentRoute);
-				currentStops.push(currentRouteStops);
+			this._createMapStops(currentRouteStops, routeConf.stop, mapPropsData.projection);
+
+			if (routeTagVehicles) {
+				this._createTranslateRouteVehicles(currentRouteVehicles, routeTagVehicles, mapPropsData.projection);
+			}
+
+			currentRoutes.push(currentRoute);
+			currentStops.push(currentRouteStops);
+			currentVehicles.push({ routeTag: routeConf.tag, currentRouteVehicles });
 		});
 
-		mapProps.currentRoutes = currentRoutes;
-		mapProps.currentStops = currentStops;
+		mapPropsData.currentRoutes = currentRoutes;
+		mapPropsData.currentStops = currentStops;
+		mapPropsData.currentVehicles = currentVehicles;
 
-		this.setState({ mapProps });
-	}
-
-	_createLine() {
-		const { mapProps } = this.state;
-
-		return d3.line()
-			.x(function (point) {
-				return mapProps.projection([point.lon, point.lat])[0];
-			})
-			.y(function (point) {
-				return mapProps.projection([point.lon, point.lat])[1];
-			});
+		this.mapProps =  mapPropsData;
 	}
 
 	_getMapConfigs() {
@@ -152,7 +210,6 @@ class ConnectionMap extends Component {
 			streets,
 		};
 
-		this.setState({ mapProps });
 		return mapProps;
 	}
 
@@ -162,17 +219,17 @@ class ConnectionMap extends Component {
 		const width = mapProps.mapDimensions.width;
 		const height = mapProps.mapDimensions.height;
 
-		const xScale = width / Math.abs(bounds[1][0] - bounds[0][0]);
-		const yScale = height / Math.abs(bounds[1][1] - bounds[0][1]);
-		const scale = xScale < yScale ? xScale : yScale;
-
-		const translate = [(width - scale * (bounds[1][0] + bounds[0][0])) / 2, (height - scale * (bounds[1][1] + bounds[0][1])) / 2];
+		// Source: http://bl.ocks.org/clhenrick/11183924
+		// Calculate bounds and obtain scale and translate for projection
+		const scale = .95 / Math.max((bounds[1][0] - bounds[0][0]) / width, (bounds[1][1] - bounds[0][1]) / height);
+        const translate = [(width - scale * (bounds[1][0] + bounds[0][0])) / 2, (height - scale * (bounds[1][1] + bounds[0][1])) / 2];
 		
 		mapProps.projection.scale(scale).translate(translate);
 	}
 
 	_initMap(callback) {
 		const mapProps = this._getMapConfigs();
+		this.mapProps = mapProps;
 
 		d3.json('/internal/GeoMap/neighborhoods.json', (err, data) => {
 			this._createBounds(mapProps, data);
@@ -192,27 +249,29 @@ class ConnectionMap extends Component {
 					.enter()
 					.append('path')
 					.attr('d', mapProps.geoPath)
-					.attr('fill', 'green')
-					.attr('stroke', '#555555')
+					.attr('fill', '#f2f2f2')
+					.attr('stroke', '#f2f2f2')
 					.attr('stroke-width', 2);
+
 				d3.json('/internal/GeoMap/freeways.json', (err, data) => {
 					mapProps.freeways.selectAll('path')
 						.data(data.features)
 						.enter()
 						.append('path')
 						.attr('d', mapProps.geoPath)
-						.attr('fill', 'red')
-						.attr('stroke', '#555555')
+						.attr('fill', '#e6e6e6')
+						.attr('stroke', '#e6e6e6')
 						.attr('stroke-width', 3);
+
 					d3.json('/internal/GeoMap/streets.json', (err, data) => {
 						mapProps.streets.selectAll('path')
 							.data(data.features)
 							.enter()
 							.append('path')
 							.attr('d', mapProps.geoPath)
-							.attr('fill', 'light-gray')
-							.attr('stroke', '#555555')
-							.attr('stroke-width', 1);
+							.attr('fill', '#a6a6a6')
+							.attr('stroke', '#a6a6a6')
+							.attr('stroke-width', 2);
 
 						return callback();							
 					});

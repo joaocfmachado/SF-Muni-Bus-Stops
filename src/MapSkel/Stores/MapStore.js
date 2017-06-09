@@ -26,7 +26,7 @@ export default Reflux.createStore({
 			success(response) {
 				if (response) {
 					this.store.routeList = response;
-					this.GetVehicleLocations(response.route[0].tag);
+					this.trigger(this.store);
 				}
 			},
 			error(xhr, status, errorThrown) {
@@ -57,23 +57,46 @@ export default Reflux.createStore({
 	},
 
 	GetVehicleLocations(routeTag) {
-		const dateMilliseconds = new Date().getTime();
-		$.ajax({
-			url: this.baseUrl,
-			type: 'GET',
-            data: { command: 'vehicleLocations', a: this.agencyTag, r: routeTag, t: dateMilliseconds },
-			dataType: 'json',
-            context: this,
-			success(response) {
-				if (response) {
-					this.store.vehicleLocations = response;
-					this.trigger(this.store);
-				}
-			},
-			error(xhr, status, errorThrown) {
-				/* const errorMessage = 'Sorry, there was a problem when trying to get datasource!';
-				sendNotifications(errorMessage, 'error', null); */				
-			},
-		});
+		const { vehicleLocations } = this.store;
+		if (routeTag) {
+			const lastUpdateTime = !vehicleLocations[routeTag] ? 0 : vehicleLocations[routeTag].lastTime.time;
+			$.ajax({
+				url: this.baseUrl,
+				type: 'GET',
+				data: { command: 'vehicleLocations', a: this.agencyTag, r: routeTag, t: lastUpdateTime },
+				dataType: 'json',
+				context: this,
+				success(response) {
+					if (response) {
+						if (!this.store.vehicleLocations[routeTag]) {
+							this.store.vehicleLocations[routeTag] = {};
+						}
+						this.store.vehicleLocations[routeTag] = response;
+						const newStore = {};
+						Object.assign(newStore, this.store);
+						this.trigger(newStore);
+					}
+				},
+				error(xhr, status, errorThrown) {
+					/* const errorMessage = 'Sorry, there was a problem when trying to get datasource!';
+					sendNotifications(errorMessage, 'error', null); */				
+				},
+			});
+		} else {
+			console.log("Please specify a routeTag to obtain Vehicle Locations.");
+		}
+	},
+
+	UpdateSelectedRoutes(routeTagToRemove) {
+		if (routeTagToRemove) {
+			delete this.store.vehicleLocations[routeTagToRemove];
+			if (Object.keys(this.store.vehicleLocations).length === 0) {
+				this.GetVehicleLocations('E');
+			} else {
+				const newStore = {}
+				Object.assign(newStore, this.store);
+				this.trigger(newStore);
+			}
+		}
 	}
 });

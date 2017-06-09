@@ -28,6 +28,7 @@ class MapSkel extends Component {
 			'onStatusChange',
 			'_editSelectedRoutes',
 			'_getSelectedRoutes',
+			'_triggerTimeoutForVehicleLocations',
 		].forEach(fn => {this[fn] = this[fn].bind(this);});
 	}
 
@@ -38,10 +39,29 @@ class MapSkel extends Component {
 	componentWillMount() {		
 		MapActions.GetRouteList();
 		MapActions.GetRouteConfig();
+		MapActions.GetVehicleLocations("E"); //Get default vehicle locations
 	}
 
 	componentDidMount() {
 		this.unsubscribe = MapStore.listen(this.onStatusChange);
+	}
+
+	componentDidUpdate() {
+		this._triggerTimeoutForVehicleLocations();
+	}
+
+	_triggerTimeoutForVehicleLocations() {
+		const { selectedRoutes } = this.state;
+
+		if (this.timer) {
+			clearTimeout(this.timer);
+		}
+		
+		this.timer = setTimeout(() => {
+			_.each(selectedRoutes, (routeTag) => {
+				MapActions.GetVehicleLocations(routeTag);
+			});
+		}, 10000);
 	}
 
 	onStatusChange(status) {
@@ -52,9 +72,19 @@ class MapSkel extends Component {
 		});
 	}
 
-	_editSelectedRoutes(e, index, value) {
-		this.setState({ selectedRoutes: value });
-		// MapActions.GetVehicleLocations(value);
+	_editSelectedRoutes(e, index, values) {
+		const { selectedRoutes } = this.state;
+
+		if (values.length < selectedRoutes.length) {
+			const unselectedRoute = _.difference(selectedRoutes, values);
+			if (unselectedRoute.length > 0) {
+				MapActions.UpdateSelectedRoutes(unselectedRoute[0]);
+			}
+		} else {
+			MapActions.GetVehicleLocations(values[values.length-1]);
+		}
+
+		this.setState({ selectedRoutes: values });		
 	}
 
 	_getSelectedRoutes(routeSelectedValues) {
@@ -87,6 +117,7 @@ class MapSkel extends Component {
 					<div className="mdl-cell mdl-cell-1-col">
 						<SelectField
 							multiple={true}
+							floatingLabelText="Select Routes"
 							value={routeSelectedValues}
 							onChange={this._editSelectedRoutes}
 							style={{ marginLeft: '20px' }}
