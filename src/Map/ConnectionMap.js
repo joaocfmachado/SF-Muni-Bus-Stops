@@ -6,7 +6,7 @@ import _ from 'underscore';
 
 const propTypes = {
 	mapId: React.PropTypes.string,
-	routeConfig: React.PropTypes.object,
+	routeConfig: React.PropTypes.array,
 	vehicleLocations: React.PropTypes.object,
 };
 
@@ -49,16 +49,16 @@ class ConnectionMap extends Component {
 		const { routeConfig } = this.props;
 		const { mapProps } = this.state;		
 
-		if (mapProps.currentRoute) {
-			mapProps.currentRoute.remove();
+		if (mapProps.currentRoutes) {
+			_.each(mapProps.currentRoutes, (currentRoute) => currentRoute.remove());
 		}
 
-		if (mapProps.currentRouteStops) {
-			mapProps.currentRouteStops.remove();
-		}
+		if (mapProps.currentStops) {
+			_.each(mapProps.currentStops, (currentStop) => currentStop.remove())
+		}		
 
-		const currentRoute = mapProps.svg.append('g').attr('id', 'currentRoute');
-		const currentRouteStops = mapProps.svg.append('g').attr('id', 'currentRouteStops');
+		const currentRoutes = [];
+		const currentStops = [];
 
 		const lineFn = d3.line()
 					.x((point) => {
@@ -67,35 +67,44 @@ class ConnectionMap extends Component {
 					.y((point) => {
 						return mapProps.projection([point.lon, point.lat])[1];
 					});
+		
+		
+		_.each(routeConfig, (routeConf, i) => {
+			const currentRoute = mapProps.svg.append('g').attr('id', `currentRoute${i}`);
+			const currentRouteStops = mapProps.svg.append('g').attr('id', `currentRouteStops${i}`);
 
-		currentRoute.selectAll('path')
-			.data(routeConfig.path)
-			.enter()
-			.append('path')
-			.attr('d', (pathData) => {
-				return lineFn(pathData.point);
-			})
-        	.attr('stroke-width', 1.5)			
-        	.attr('stroke', `#${routeConfig.color}`)
-			.attr('fill', `#${routeConfig.color}`)
-			.attr('fill-opacity', 0);
+			currentRoute.selectAll('path')
+				.data(routeConf.path)
+				.enter()
+				.append('path')
+				.attr('d', (pathData) => {
+					return lineFn(pathData.point);
+				})
+				.attr('stroke-width', 1.5)			
+				.attr('stroke', `#${routeConf.color}`)
+				.attr('fill', `#${routeConf.color}`)
+				.attr('fill-opacity', 0);
 
-		currentRouteStops.selectAll('rect')
-			.data(routeConfig.stop)
-			.enter()
-			.append('rect')
-			.attr('fill', '#4040a1')
-			.attr('width', 5)
-			.attr('height', 5)
-			.attr('x', (stopData) => {
-				return mapProps.projection([stopData.lon, stopData.lat])[0];
-			})
-			.attr('y', (stopData) => {
-				return mapProps.projection([stopData.lon, stopData.lat])[1];
-			})
+			currentRouteStops.selectAll('rect')
+				.data(routeConf.stop)
+				.enter()
+				.append('rect')
+				.attr('fill', '#4040a1')
+				.attr('width', 5)
+				.attr('height', 5)
+				.attr('x', (stopData) => {
+					return mapProps.projection([stopData.lon, stopData.lat])[0];
+				})
+				.attr('y', (stopData) => {
+					return mapProps.projection([stopData.lon, stopData.lat])[1];
+				});
 
-		mapProps.currentRoute = currentRoute;
-		mapProps.currentRouteStops = currentRouteStops;
+				currentRoutes.push(currentRoute);
+				currentStops.push(currentRouteStops);
+		});
+
+		mapProps.currentRoutes = currentRoutes;
+		mapProps.currentStops = currentStops;
 
 		this.setState({ mapProps });
 	}
@@ -177,7 +186,7 @@ class ConnectionMap extends Component {
 				.attr('stroke', '#555555')
 				.attr('stroke-width', 1);	
 
-			/* d3.json('/internal/GeoMap/arteries.json', (err, data) => {
+			d3.json('/internal/GeoMap/arteries.json', (err, data) => {
 				mapProps.arteries.selectAll('path')
 					.data(data.features)
 					.enter()
@@ -208,8 +217,7 @@ class ConnectionMap extends Component {
 						return callback();							
 					});
 				});
-			});		*/
-			return callback();
+			});
 		});		
 	}
 

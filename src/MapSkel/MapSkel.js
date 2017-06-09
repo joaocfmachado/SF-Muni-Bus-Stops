@@ -21,12 +21,13 @@ class MapSkel extends Component {
 			routeList: {},
 			routeConfig: {},
 			vehicleLocations: {},
-			selectedRoute: null,
+			selectedRoutes: [],
 		};
 
 		[
 			'onStatusChange',
-			'_editSelectedRoute',
+			'_editSelectedRoutes',
+			'_getSelectedRoutes',
 		].forEach(fn => {this[fn] = this[fn].bind(this);});
 	}
 
@@ -51,37 +52,54 @@ class MapSkel extends Component {
 		});
 	}
 
-	_editSelectedRoute(e, index, value) {
-		this.setState({ selectedRoute: value });
-		MapActions.GetVehicleLocations(value);
+	_editSelectedRoutes(e, index, value) {
+		this.setState({ selectedRoutes: value });
+		// MapActions.GetVehicleLocations(value);
+	}
+
+	_getSelectedRoutes(routeSelectedValues) {
+		const { routeConfig } = this.state;
+
+		const routeMapConfig = [];
+		if (routeSelectedValues) {
+			_.each(routeSelectedValues, (routeSelectedValue) => {
+				const routeSelected = _.findWhere(routeConfig.route, { tag: routeSelectedValue });
+				if (routeSelected) {
+					routeMapConfig.push(routeSelected);
+				}
+			});
+		}
+
+		return routeMapConfig;
 	}
 
 	render() {
-		const { selectedRoute, routeList, routeConfig, vehicleLocations } = this.state;
+		const { selectedRoutes, routeList, routeConfig, vehicleLocations } = this.state;
 
-		const routeListRoute = !routeList.route ? [] : routeList.route;
-		const routeSelectedValue = !selectedRoute && routeListRoute.length > 0 ? routeListRoute[0].tag : selectedRoute;
+		const routeListRoute = !routeList.route ? [] : routeList.route;		
+		const routeSelectedValues = selectedRoutes.length === 0 && routeListRoute.length > 0 ? [routeListRoute[0].tag] : selectedRoutes;
 
-		let routeMapConfig = {};
-		if (routeSelectedValue) {
-			routeMapConfig = _.findWhere(routeConfig.route, { tag: routeSelectedValue });
-		}
+		const routeMapConfig = this._getSelectedRoutes(routeSelectedValues);
 
 		return (
 			<div id="mainContent">				
 				<div className="mdl-grid">
 					<div className="mdl-cell mdl-cell-1-col">
 						<SelectField
-							type="text"
-							id="selectRoute"
-							floatingLabelText="Select Route"
-							value={routeSelectedValue}
-							onChange={(e, index, value) => this._editSelectedRoute(e, index, value)}
+							multiple={true}
+							value={routeSelectedValues}
+							onChange={this._editSelectedRoutes}
 							style={{ marginLeft: '20px' }}
 						>
 							{
-								routeListRoute.map((route, i) =>
-									<MenuItem key={i} value={route.tag} primaryText={route.title} />
+								routeListRoute.map((route, i) => 
+									<MenuItem
+										key={i}
+										insetChildren={true}
+										value={route.tag}
+										primaryText={route.title}
+										checked={routeSelectedValues && routeSelectedValues.indexOf(route.tag) > -1}
+									/>
 								)
 							}
 						</SelectField>
