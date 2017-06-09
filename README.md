@@ -8,3 +8,4 @@ Steps to run this app:
 
 You can also try this app out through this url:
 - http://sf-muni-bus-stops.surge.sh/
+The map may take a few seconds to show. That is because there is a full load of the route configs to make the app. utilization smoother after the load.
