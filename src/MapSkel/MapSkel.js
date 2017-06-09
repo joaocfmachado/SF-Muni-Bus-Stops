@@ -61,7 +61,7 @@ class MapSkel extends Component {
 			_.each(selectedRoutes, (routeTag) => {
 				MapActions.GetVehicleLocations(routeTag);
 			});
-		}, 10000);
+		}, 15000);
 	}
 
 	onStatusChange(status) {

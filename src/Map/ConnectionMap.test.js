@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import ConnectionMap from './Map';
+import ConnectionMap from './ConnectionMap.js';
 
 it('renders without crashing', () => {
-  ReactDOM.render(<ConnectionMap />, document.getElementById('mainContent'));
+  ReactDOM.render(<ConnectionMap />, document.getElementById('mapContent'));
 });
