@@ -84,7 +84,7 @@ class ConnectionMap extends Component {
 			.data(stops)
 			.enter()
 			.append('rect')
-			.attr('fill', '#4040a1')
+			.attr('fill', '#996633')
 			.attr('width', 5)
 			.attr('height', 5)
 			.attr('x', (stopData) => {
